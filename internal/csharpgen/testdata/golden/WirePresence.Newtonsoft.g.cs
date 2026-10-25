@@ -110,6 +110,16 @@ namespace Test.Wire
         public PresenceInner? NullWhenEmpty { get; set; }
     }
 
+    public sealed class PreserveProbe
+    {
+        [JsonProperty("kept")]
+        public List<string> Kept { get; set; } = new();
+        [JsonProperty("plain")]
+        public List<string> Plain { get; set; } = new();
+        [JsonProperty("kept_places")]
+        public List<PresenceInner> KeptPlaces { get; set; } = new();
+    }
+
     public sealed class PresenceRequest
     {
         [JsonProperty("id")]

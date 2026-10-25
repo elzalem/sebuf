@@ -28,5 +28,11 @@ export interface PresenceInner {
   state?: string;
 }
 
+export interface PreserveProbe {
+  kept: string[];
+  plain: string[];
+  kept_places: PresenceInner[];
+}
+
 export type FileKind = "FILE_KIND_UNSPECIFIED" | "JPEG" | "PNG" | "MP4";
 

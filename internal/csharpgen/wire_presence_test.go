@@ -128,6 +128,7 @@ internal static class Program
         UnsetShapesWithDefaultSettings();
         UnsetShapesWithWireSettings();
         ExplicitNullAndAbsentOnRead();
+        PreservedListsAreWrittenEmpty();
         Console.WriteLine("ok");
     }
 
@@ -234,6 +235,19 @@ internal static class Program
         // Unknown members are ignored on read.
         var extra = JsonConvert.DeserializeObject<PresenceProbe>("""{"name":"a","surprise":1}""", WireSettings)!;
         Equal("a", extra.Name, "unknown member ignored");
+    }
+
+    private static void PreservedListsAreWrittenEmpty()
+    {
+        // (sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_PRESERVE on a repeated field changes nothing
+        // here: the generated list is never null, so an empty one is already written as [] (the
+        // Python client is where it matters).
+        Equal(
+            """{"kept":[],"plain":[],"kept_places":[]}""",
+            JsonConvert.SerializeObject(new PreserveProbe(), WireSettings),
+            "preserved and plain empty lists are both written as []");
+        var read = JsonConvert.DeserializeObject<PreserveProbe>("""{"kept":[],"kept_places":[]}""", WireSettings)!;
+        Equal(0, read.Kept.Count, "preserved list reads back empty");
     }
 
     private static void True(bool condition, string name)
