@@ -24,6 +24,32 @@ const (
 	FormatJSON OutputFormat = "json"
 )
 
+// FieldNames selects how a message field is named in the schemas: as the property
+// of an object, in a required list, and as a oneof variant's property.
+type FieldNames string
+
+const (
+	// FieldNamesJSON names a field by its json_name: lowerCamelCase unless the proto
+	// overrides it, which is the form protojson writes. This is the default.
+	FieldNamesJSON FieldNames = "json"
+	// FieldNamesProto names a field by its proto field name as written (snake_case),
+	// for services whose wire format keeps the proto names.
+	FieldNamesProto FieldNames = "proto"
+)
+
+// ParseFieldNames converts the value of the field_names plugin option. An empty
+// value selects the default, FieldNamesJSON.
+func ParseFieldNames(value string) (FieldNames, error) {
+	switch FieldNames(value) {
+	case "", FieldNamesJSON:
+		return FieldNamesJSON, nil
+	case FieldNamesProto:
+		return FieldNamesProto, nil
+	default:
+		return "", fmt.Errorf("field_names must be json or proto, got %q", value)
+	}
+}
+
 // HTTP method constants (lowercase for OpenAPI).
 const (
 	httpMethodGet    = "get"
@@ -39,6 +65,7 @@ type Generator struct {
 	schemas    *orderedmap.Map[string, *base.SchemaProxy]
 	format     OutputFormat
 	bundleMode bool
+	fieldNames FieldNames
 }
 
 // NewGenerator creates a new OpenAPI generator with the specified output format.
@@ -49,8 +76,9 @@ func NewGenerator(format OutputFormat) *Generator {
 	addBuiltinErrorSchemas(schemas)
 
 	return &Generator{
-		format:  format,
-		schemas: schemas,
+		format:     format,
+		fieldNames: FieldNamesJSON,
+		schemas:    schemas,
 		doc: &v3.Document{
 			Version: "3.1.0",
 			Info: &base.Info{
@@ -96,6 +124,24 @@ func (g *Generator) SetInfo(title, version, description string, contact *base.Co
 	if license != nil {
 		g.doc.Info.License = license
 	}
+}
+
+// SetFieldNames selects the naming of message fields in the schemas. The default is
+// FieldNamesJSON. Call it before processing any service or message.
+func (g *Generator) SetFieldNames(fieldNames FieldNames) {
+	g.fieldNames = fieldNames
+}
+
+// propertyName returns the name under which a field appears in a schema.
+//
+// Only fields are renamed. A discriminator property takes its name verbatim from the
+// oneof_config annotation, and flatten prefixes, path and query parameter names are
+// written out in the proto, so none of them depends on the option.
+func (g *Generator) propertyName(field *protogen.Field) string {
+	if g.fieldNames == FieldNamesProto {
+		return string(field.Desc.Name())
+	}
+	return field.Desc.JSONName()
 }
 
 // SetServers replaces the document's servers block. An empty slice clears it (OpenAPI
@@ -324,7 +370,7 @@ func (g *Generator) buildObjectSchema(message *protogen.Message) *base.SchemaPro
 
 	for _, field := range message.Fields {
 		fieldSchema := g.convertField(field)
-		fieldName := field.Desc.JSONName()
+		fieldName := g.propertyName(field)
 		properties.Set(fieldName, fieldSchema)
 
 		// Check if field has the required constraint from buf.validate
@@ -449,7 +495,7 @@ func (g *Generator) buildFlattenedVariantSchemas(
 			if oneofFields[string(field.Desc.Name())] {
 				continue
 			}
-			variantProps.Set(field.Desc.JSONName(), g.convertField(field))
+			variantProps.Set(g.propertyName(field), g.convertField(field))
 		}
 
 		// Add discriminator field
@@ -462,7 +508,7 @@ func (g *Generator) buildFlattenedVariantSchemas(
 		// Add variant's message fields (flattened to parent level)
 		if variant.IsMessage {
 			for _, childField := range variant.Field.Message.Fields {
-				variantProps.Set(childField.Desc.JSONName(), g.convertField(childField))
+				variantProps.Set(g.propertyName(childField), g.convertField(childField))
 			}
 		}
 
@@ -513,7 +559,7 @@ func (g *Generator) buildNestedOneofSchema(
 		if oneofFields[string(field.Desc.Name())] {
 			continue
 		}
-		fieldName := field.Desc.JSONName()
+		fieldName := g.propertyName(field)
 		properties.Set(fieldName, g.convertField(field))
 		if checkIfFieldRequired(field) {
 			required = append(required, fieldName)
@@ -573,12 +619,12 @@ func (g *Generator) buildNestedOneofVariants(
 		// Build oneOf with per-variant schemas
 		for _, variant := range info.Variants {
 			variantProps := orderedmap.New[string, *base.SchemaProxy]()
-			fieldJSONName := variant.Field.Desc.JSONName()
+			variantFieldName := g.propertyName(variant.Field)
 			if variant.IsMessage {
 				ref := fmt.Sprintf("#/components/schemas/%s", g.getSchemaName(variant.Field.Message))
-				variantProps.Set(fieldJSONName, base.CreateSchemaProxyRef(ref))
+				variantProps.Set(variantFieldName, base.CreateSchemaProxyRef(ref))
 			} else {
-				variantProps.Set(fieldJSONName, g.convertScalarField(variant.Field))
+				variantProps.Set(variantFieldName, g.convertScalarField(variant.Field))
 			}
 			oneOfSchemas = append(oneOfSchemas, base.CreateSchemaProxy(&base.Schema{
 				Type:       []string{"object"},
@@ -623,7 +669,7 @@ func (g *Generator) buildFlattenedObjectSchema(message *protogen.Message) *base.
 		}
 
 		fieldSchema := g.convertField(field)
-		fieldName := field.Desc.JSONName()
+		fieldName := g.propertyName(field)
 		baseProps.Set(fieldName, fieldSchema)
 
 		if checkIfFieldRequired(field) {
@@ -653,7 +699,7 @@ func (g *Generator) buildFlattenedObjectSchema(message *protogen.Message) *base.
 
 		for _, childField := range field.Message.Fields {
 			childSchema := g.convertField(childField)
-			flattenedName := prefix + childField.Desc.JSONName()
+			flattenedName := prefix + g.propertyName(childField)
 			flatProps.Set(flattenedName, childSchema)
 		}
 

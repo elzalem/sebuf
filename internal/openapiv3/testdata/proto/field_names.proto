@@ -1,0 +1,150 @@
+// Test proto for the field_names option: multi-word fields of every shape whose
+// property name differs between json_name (lowerCamelCase) and the proto name.
+syntax = "proto3";
+
+package test.openapiv3.fieldnames;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/openapiv3/testdata/fieldnames;fieldnames";
+
+import "buf/validate/validate.proto";
+import "sebuf/http/annotations.proto";
+
+service FieldNamesService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api"
+  };
+
+  // Registers a worker. The request body holds the multi-word fields.
+  rpc Register(RegisterRequest) returns (RegisterResponse) {
+    option (sebuf.http.config) = {
+      path: "/workers/{worker_id}/register"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  // Lists workers. The path and query parameter names are written in the proto
+  // and must not change with the option.
+  rpc List(ListRequest) returns (ListResponse) {
+    option (sebuf.http.config) = {
+      path: "/regions/{region_id}/workers"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // Flattened fields, with and without a prefix.
+  rpc SaveProfile(FlattenedProfile) returns (FlattenedProfile) {
+    option (sebuf.http.config) = {
+      path: "/profiles"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  // A flattened discriminated union.
+  rpc PublishFlattened(FlattenedEvent) returns (FlattenedEvent) {
+    option (sebuf.http.config) = {
+      path: "/events/flattened"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  // A nested discriminated union.
+  rpc PublishNested(NestedEvent) returns (NestedEvent) {
+    option (sebuf.http.config) = {
+      path: "/events/nested"
+      method: HTTP_METHOD_POST
+    };
+  }
+}
+
+enum WorkerKind {
+  WORKER_KIND_UNSPECIFIED = 0;
+  WORKER_KIND_ML = 1;
+}
+
+message Probe {
+  string probe_detail = 1;
+  int32 retry_count = 2;
+}
+
+message RegisterRequest {
+  string worker_id = 1;
+  string worker_name = 2 [(buf.validate.field).required = true];
+  int32 protocol_version = 3 [(buf.validate.field).required = true];
+  bool is_draining = 4;
+  WorkerKind worker_kind = 5;
+  Probe nested_probe = 6;
+  repeated Probe recent_probes = 7;
+  map<string, string> extra_labels = 8;
+  repeated string capability_set = 9;
+  // The json_name option overrides the lowerCamelCase form; the proto name is
+  // still the one written in proto mode.
+  string legacy_token = 10 [json_name = "legacy-token"];
+}
+
+message RegisterResponse {
+  string next_cursor = 1;
+  repeated Probe known_probes = 2;
+  Probe last_probe = 3;
+}
+
+message ListRequest {
+  string region_id = 1;
+  int32 page_size = 2 [(sebuf.http.query) = { name: "page_size" }];
+  string page_token = 3 [(sebuf.http.query) = { name: "page_token" }];
+}
+
+message ListResponse {
+  repeated Probe known_probes = 1;
+  string next_page_token = 2;
+}
+
+message StreetAddress {
+  string street_line = 1;
+  string postal_code = 2;
+}
+
+message FlattenedProfile {
+  string profile_id = 1;
+  string display_name = 2 [(buf.validate.field).required = true];
+  StreetAddress home_address = 3 [(sebuf.http.flatten) = true];
+  StreetAddress mailing_address = 4 [
+    (sebuf.http.flatten) = true,
+    (sebuf.http.flatten_prefix) = "mail_"
+  ];
+}
+
+message TextContent {
+  string body_text = 1;
+}
+
+message ImageContent {
+  string image_url = 1;
+  int32 pixel_width = 2;
+}
+
+message FlattenedEvent {
+  string event_id = 1;
+  string source_name = 2 [(buf.validate.field).required = true];
+  oneof content {
+    option (sebuf.http.oneof_config) = {
+      discriminator: "event_type"
+      flatten: true
+    };
+    TextContent text_content = 3;
+    ImageContent image_content = 4 [(sebuf.http.oneof_value) = "img"];
+  }
+}
+
+message NestedEvent {
+  string event_id = 1;
+  string source_name = 2 [(buf.validate.field).required = true];
+  oneof payload {
+    option (sebuf.http.oneof_config) = {
+      discriminator: "payload_kind"
+      flatten: false
+    };
+    TextContent text_content = 3;
+    ImageContent image_content = 4 [(sebuf.http.oneof_value) = "img"];
+    string plain_value = 5 [(sebuf.http.oneof_value) = "plain"];
+  }
+}

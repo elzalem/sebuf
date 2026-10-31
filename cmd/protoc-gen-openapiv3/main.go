@@ -36,9 +36,15 @@ func main() {
 	req := readRequest()
 	params := parseParameters(req.GetParameter())
 	format := parseFormat(params)
+	fieldNames, fieldNamesErr := parseFieldNames(params)
 	bundle := parseBundleConfig(params)
 	plugin := createPlugin(req)
-	generateOpenAPIFiles(plugin, format, bundle)
+	if fieldNamesErr != nil {
+		// An unknown value fails the run instead of silently producing the wrong names.
+		plugin.Error(fieldNamesErr)
+	} else {
+		generateOpenAPIFiles(plugin, format, fieldNames, bundle)
+	}
 	writeResponse(plugin)
 }
 
@@ -65,6 +71,15 @@ func parseFormat(params map[string][]string) openapiv3.OutputFormat {
 		}
 	}
 	return openapiv3.FormatYAML
+}
+
+// parseFieldNames reads the field_names option: "json" (the default) names schema
+// properties by the field's json_name, "proto" by the proto field name.
+func parseFieldNames(params map[string][]string) (openapiv3.FieldNames, error) {
+	if vs, ok := params["field_names"]; ok && len(vs) > 0 {
+		return openapiv3.ParseFieldNames(vs[0])
+	}
+	return openapiv3.FieldNamesJSON, nil
 }
 
 // parseBundleConfig extracts bundle_* plugin params. Repeated keys (notably
@@ -108,7 +123,12 @@ func createPlugin(req *pluginpb.CodeGeneratorRequest) *protogen.Plugin {
 	return plugin
 }
 
-func generateOpenAPIFiles(plugin *protogen.Plugin, format openapiv3.OutputFormat, bundle bundleConfig) {
+func generateOpenAPIFiles(
+	plugin *protogen.Plugin,
+	format openapiv3.OutputFormat,
+	fieldNames openapiv3.FieldNames,
+	bundle bundleConfig,
+) {
 	// Reject path/query params whose types cannot be represented in a URL before
 	// emitting anything, so an invalid proto fails cleanly instead of documenting a
 	// contract no generator implements.
@@ -123,18 +143,23 @@ func generateOpenAPIFiles(plugin *protogen.Plugin, format openapiv3.OutputFormat
 			if !file.Generate {
 				continue
 			}
-			processFileServices(plugin, file, format)
+			processFileServices(plugin, file, format, fieldNames)
 		}
 	}
 
 	if bundle.enabled {
-		generateBundleFile(plugin, format, bundle)
+		generateBundleFile(plugin, format, fieldNames, bundle)
 	}
 }
 
-func processFileServices(plugin *protogen.Plugin, file *protogen.File, format openapiv3.OutputFormat) {
+func processFileServices(
+	plugin *protogen.Plugin,
+	file *protogen.File,
+	format openapiv3.OutputFormat,
+	fieldNames openapiv3.FieldNames,
+) {
 	for _, service := range file.Services {
-		generator := createServiceGenerator(file, service, format)
+		generator := createServiceGenerator(file, service, format, fieldNames)
 		output := renderService(generator)
 		writeServiceFile(plugin, service, output, format)
 	}
@@ -144,8 +169,10 @@ func createServiceGenerator(
 	_ *protogen.File,
 	service *protogen.Service,
 	format openapiv3.OutputFormat,
+	fieldNames openapiv3.FieldNames,
 ) *openapiv3.Generator {
 	generator := openapiv3.NewGenerator(format)
+	generator.SetFieldNames(fieldNames)
 
 	// Collect all messages referenced by this service, including those from other files
 	generator.CollectReferencedMessages(service)
@@ -182,8 +209,14 @@ func writeServiceFile(
 
 // generateBundleFile collects every service across every generated proto file into a
 // single OpenAPI document with proto-package-qualified schema names.
-func generateBundleFile(plugin *protogen.Plugin, format openapiv3.OutputFormat, cfg bundleConfig) {
+func generateBundleFile(
+	plugin *protogen.Plugin,
+	format openapiv3.OutputFormat,
+	fieldNames openapiv3.FieldNames,
+	cfg bundleConfig,
+) {
 	generator := openapiv3.NewBundleGenerator(format)
+	generator.SetFieldNames(fieldNames)
 	applyBundleMetadata(generator, cfg)
 
 	serviceCount := 0

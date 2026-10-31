@@ -1,0 +1,420 @@
+openapi: 3.1.0
+info:
+    title: FieldNamesService API
+    version: 1.0.0
+paths:
+    /api/workers/{worker_id}/register:
+        post:
+            tags:
+                - FieldNamesService
+            summary: Register
+            description: Registers a worker. The request body holds the multi-word fields.
+            operationId: Register
+            parameters:
+                - name: worker_id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/RegisterRequest'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/RegisterResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+    /api/regions/{region_id}/workers:
+        get:
+            tags:
+                - FieldNamesService
+            summary: List
+            description: |-
+                Lists workers. The path and query parameter names are written in the proto
+                 and must not change with the option.
+            operationId: List
+            parameters:
+                - name: region_id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: page_size
+                  in: query
+                  required: false
+                  schema:
+                    type: integer
+                    format: int32
+                - name: page_token
+                  in: query
+                  required: false
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+    /api/profiles:
+        post:
+            tags:
+                - FieldNamesService
+            summary: SaveProfile
+            description: Flattened fields, with and without a prefix.
+            operationId: SaveProfile
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/FlattenedProfile'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/FlattenedProfile'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+    /api/events/flattened:
+        post:
+            tags:
+                - FieldNamesService
+            summary: PublishFlattened
+            description: A flattened discriminated union.
+            operationId: PublishFlattened
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/FlattenedEvent'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/FlattenedEvent'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+    /api/events/nested:
+        post:
+            tags:
+                - FieldNamesService
+            summary: PublishNested
+            description: A nested discriminated union.
+            operationId: PublishNested
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/NestedEvent'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/NestedEvent'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+components:
+    schemas:
+        Error:
+            type: object
+            properties:
+                message:
+                    type: string
+                    description: Error message (e.g., 'user not found', 'database connection failed')
+            description: Error is returned when a handler encounters an error. It contains a simple error message that the developer can customize.
+        FieldViolation:
+            type: object
+            properties:
+                field:
+                    type: string
+                    description: The field path that failed validation (e.g., 'user.email' for nested fields). For header validation, this will be the header name (e.g., 'X-API-Key')
+                description:
+                    type: string
+                    description: Human-readable description of the validation violation (e.g., 'must be a valid email address', 'required field missing')
+            required:
+                - field
+                - description
+            description: FieldViolation describes a single validation error for a specific field.
+        ValidationError:
+            type: object
+            properties:
+                violations:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/FieldViolation'
+                    description: List of validation violations
+            required:
+                - violations
+            description: ValidationError is returned when request validation fails. It contains a list of field violations describing what went wrong.
+        RegisterRequest:
+            type: object
+            properties:
+                worker_id:
+                    type: string
+                worker_name:
+                    type: string
+                protocol_version:
+                    type: integer
+                    format: int32
+                is_draining:
+                    type: boolean
+                worker_kind:
+                    type: string
+                    enum:
+                        - WORKER_KIND_UNSPECIFIED
+                        - WORKER_KIND_ML
+                nested_probe:
+                    $ref: '#/components/schemas/Probe'
+                recent_probes:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Probe'
+                extra_labels:
+                    type: object
+                    additionalProperties:
+                        type: string
+                capability_set:
+                    type: array
+                    items:
+                        type: string
+                legacy_token:
+                    type: string
+                    description: |-
+                        The json_name option overrides the lowerCamelCase form; the proto name is
+                         still the one written in proto mode.
+            required:
+                - worker_name
+                - protocol_version
+        ExtraLabelsEntry:
+            type: object
+            properties:
+                key:
+                    type: string
+                value:
+                    type: string
+        Probe:
+            type: object
+            properties:
+                probe_detail:
+                    type: string
+                retry_count:
+                    type: integer
+                    format: int32
+        RegisterResponse:
+            type: object
+            properties:
+                next_cursor:
+                    type: string
+                known_probes:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Probe'
+                last_probe:
+                    $ref: '#/components/schemas/Probe'
+        ListRequest:
+            type: object
+            properties:
+                region_id:
+                    type: string
+                page_size:
+                    type: integer
+                    format: int32
+                page_token:
+                    type: string
+        ListResponse:
+            type: object
+            properties:
+                known_probes:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Probe'
+                next_page_token:
+                    type: string
+        FlattenedProfile:
+            allOf:
+                - type: object
+                  properties:
+                    profile_id:
+                        type: string
+                    display_name:
+                        type: string
+                  required:
+                    - display_name
+                - type: object
+                  properties:
+                    street_line:
+                        type: string
+                    postal_code:
+                        type: string
+                  description: Flattened from home_address
+                - type: object
+                  properties:
+                    mail_street_line:
+                        type: string
+                    mail_postal_code:
+                        type: string
+                  description: Flattened from mailing_address with prefix "mail_"
+        StreetAddress:
+            type: object
+            properties:
+                street_line:
+                    type: string
+                postal_code:
+                    type: string
+        FlattenedEvent_text_content:
+            type: object
+            properties:
+                event_id:
+                    type: string
+                source_name:
+                    type: string
+                event_type:
+                    type: string
+                    enum:
+                        - text_content
+                body_text:
+                    type: string
+            required:
+                - event_type
+        FlattenedEvent_img:
+            type: object
+            properties:
+                event_id:
+                    type: string
+                source_name:
+                    type: string
+                event_type:
+                    type: string
+                    enum:
+                        - img
+                image_url:
+                    type: string
+                pixel_width:
+                    type: integer
+                    format: int32
+            required:
+                - event_type
+        FlattenedEvent:
+            oneOf:
+                - $ref: '#/components/schemas/FlattenedEvent_text_content'
+                - $ref: '#/components/schemas/FlattenedEvent_img'
+            discriminator:
+                propertyName: event_type
+                mapping:
+                    text_content: '#/components/schemas/FlattenedEvent_text_content'
+                    img: '#/components/schemas/FlattenedEvent_img'
+        TextContent:
+            type: object
+            properties:
+                body_text:
+                    type: string
+        ImageContent:
+            type: object
+            properties:
+                image_url:
+                    type: string
+                pixel_width:
+                    type: integer
+                    format: int32
+        NestedEvent:
+            type: object
+            oneOf:
+                - type: object
+                  properties:
+                    text_content:
+                        $ref: '#/components/schemas/TextContent'
+                - type: object
+                  properties:
+                    image_content:
+                        $ref: '#/components/schemas/ImageContent'
+                - type: object
+                  properties:
+                    plain_value:
+                        type: string
+            discriminator:
+                propertyName: payload_kind
+                mapping:
+                    text_content: '#/components/schemas/TextContent'
+                    img: '#/components/schemas/ImageContent'
+            properties:
+                event_id:
+                    type: string
+                source_name:
+                    type: string
+                payload_kind:
+                    type: string
+                    enum:
+                        - text_content
+                        - img
+                        - plain
+            required:
+                - source_name

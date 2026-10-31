@@ -223,6 +223,8 @@ plugins:
     # opt: format=json
     # For custom filename:
     # opt: filename=my_api.yaml
+    # For snake_case property names (the proto field names) instead of lowerCamelCase:
+    # opt: field_names=proto
 ```
 
 Generate:
@@ -983,6 +985,51 @@ protoc --openapiv3_out=./docs \
        --openapiv3_opt=version="2.1.0" \
        api.proto
 ```
+
+### Field Names
+
+By default every message field is named in the schemas by its `json_name`, lowerCamelCase unless the proto overrides it, which is the form `protojson` writes. A service whose JSON keeps the proto field names (snake_case) needs a specification that says so; the `field_names` option selects the naming, with the same values as `protoc-gen-py-client` and `protoc-gen-ts-client`:
+
+| Option | Values | Default | Effect |
+|---|---|---|---|
+| `field_names` | `json`, `proto` | `json` | `json` names a field by its `json_name`. `proto` names it by the proto field name as written (`worker_name`). Any other value fails the run. |
+
+```bash
+protoc --openapiv3_out=./docs --openapiv3_opt=field_names=proto api.proto
+```
+
+```yaml
+  - local: protoc-gen-openapiv3
+    out: ./docs
+    opt:
+      - field_names=proto
+```
+
+For a message with the fields `worker_name` (marked required with `buf.validate`) and `protocol_version`, the default writes
+
+```yaml
+properties:
+  workerName: ...
+  protocolVersion: ...
+required:
+  - workerName
+```
+
+and `field_names=proto` writes
+
+```yaml
+properties:
+  worker_name: ...
+  protocol_version: ...
+required:
+  - worker_name
+```
+
+`proto` changes every place a message field is named: the keys of `properties`, the `required` lists, the properties of the variant schemas of a `oneof_config` oneof (flattened or nested), and the fields promoted by `flatten` (after the `flatten_prefix`, which is written in the proto and used as given). The bundled document made with `bundle=true` follows the option too. A `json_name` override such as `[json_name = "legacy-token"]` is ignored in `proto` mode.
+
+Names that the proto already spells out do not change with the option: path and query parameter names, header names, the discriminator property of a `oneof_config` (`discriminator: "event_type"`) and the discriminator values, enum values, and the built-in `Error`, `ValidationError` and `FieldViolation` schemas, whose fields are single words.
+
+The option describes the wire format; it does not make a server write it. Pair it with the server-side setting that keeps the proto field names in the JSON (for Go's `protojson`, `UseProtoNames`), or the specification will describe keys the server does not send.
 
 ### Output Directory Structure
 

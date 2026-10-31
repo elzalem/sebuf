@@ -41,6 +41,8 @@ This starts a working HTTP API with JSON endpoints and OpenAPI docs - all genera
 | `protoc-gen-csharp-http` | C# HTTP clients and DTOs with injectable `HttpClient`, configurable JSON support, headers, and typed errors |
 | `protoc-gen-openapiv3` | OpenAPI v3.1 specs that stay in sync with your code, one file per service |
 
+**Wire field names.** `protoc-gen-openapiv3`, `protoc-gen-py-client` and `protoc-gen-ts-client` take the plugin option `field_names=json|proto`. `json` (the default) names fields by their `json_name`, lowerCamelCase as `protojson` writes them; `proto` keeps the proto field names (`worker_name`) for services whose JSON is snake_case. See [OpenAPI generation](docs/openapi-generation.md#field-names) and [Python generation](docs/python-generation.md).
+
 **Validation and error handling — built in, not bolted on:**
 
 - Automatic request body validation via [buf.validate](https://github.com/bufbuild/protovalidate) annotations
