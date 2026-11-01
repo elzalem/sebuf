@@ -179,6 +179,28 @@ internal static class Program
         });
         Equal("search", search.Id, "GET query response");
 
+        // Query presence: requests 3-5 below. A set optional field is sent even at zero, false or "";
+        // a field without optional is omitted at its zero value.
+        var zeroPresence = await client.SearchPresenceAsync(new RuntimePresenceRequest
+        {
+            OptCount = 0,
+            OptFlag = false,
+            OptText = "",
+            OptRatio = 0,
+        });
+        Equal("search", zeroPresence.Id, "optional zero values response");
+        var unsetPresence = await client.SearchPresenceAsync(new RuntimePresenceRequest());
+        Equal("search", unsetPresence.Id, "unset query fields response");
+        var setPresence = await client.SearchPresenceAsync(new RuntimePresenceRequest
+        {
+            OptCount = 7,
+            Count = 3,
+            Flag = true,
+            Text = "x",
+            Ratio = 1.5,
+        });
+        Equal("search", setPresence.Id, "non-zero query fields response");
+
         var shape = await client.EchoShapeAsync(new ShapeEnvelope { Radius = 2.5 });
         Equal("circle_shape", shape.Kind, "oneof discriminator response");
         Equal(3.5, shape.Radius, "flattened oneof response");
@@ -187,7 +209,7 @@ internal static class Program
         var tags = await client.EchoTagsAsync(new TagList { "one", "two" });
         Equal(2, tags.Count, "root unwrap response count");
         Equal("two", tags[1], "root unwrap response value");
-        Equal(4, _requestNumber, "successful request count");
+        Equal(7, _requestNumber, "successful request count");
     }
 
     private static async Task<HttpResponseMessage> HandleSuccessfulRequest(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -231,6 +253,22 @@ internal static class Program
             }
             case 3:
             {
+                Equal(HttpMethod.Get, request.Method, "presence HTTP verb");
+                Equal("/ignored/runtime/v1/presence?opt_count=0&opt_flag=false&opt_text=&opt_ratio=0", request.RequestUri!.PathAndQuery, "optional zero values are sent, non-optional zero values are not");
+                return Json(HttpStatusCode.OK, """{"id":"search"}""");
+            }
+            case 4:
+            {
+                Equal("/ignored/runtime/v1/presence", request.RequestUri!.PathAndQuery, "unset query fields are not sent");
+                return Json(HttpStatusCode.OK, """{"id":"search"}""");
+            }
+            case 5:
+            {
+                Equal("/ignored/runtime/v1/presence?opt_count=7&count=3&flag=true&text=x&ratio=1.5", request.RequestUri!.PathAndQuery, "non-zero query fields are sent");
+                return Json(HttpStatusCode.OK, """{"id":"search"}""");
+            }
+            case 6:
+            {
                 Equal(HttpMethod.Post, request.Method, "shape HTTP verb");
                 Equal("/ignored/runtime/v1/shapes", request.RequestUri!.PathAndQuery, "shape path");
                 using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(cancellationToken));
@@ -239,7 +277,7 @@ internal static class Program
                 True(!body.RootElement.TryGetProperty("rectangle", out _), "unselected oneof request variant");
                 return Json(HttpStatusCode.OK, """{"kind":"circle_shape","radius":3.5}""");
             }
-            case 4:
+            case 7:
             {
                 Equal(HttpMethod.Put, request.Method, "unwrap HTTP verb");
                 Equal("/ignored/runtime/v1/tags", request.RequestUri!.PathAndQuery, "unwrap path");

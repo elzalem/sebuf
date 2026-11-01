@@ -19,6 +19,19 @@ message RuntimeSearchRequest {
   repeated string tag_ids = 2 [(sebuf.http.query) = { name: "tag" }];
 }
 
+// Query presence: a proto3 optional field is sent whenever it is set, zero
+// values included; a field without optional is omitted at its zero value.
+message RuntimePresenceRequest {
+  optional int32 opt_count = 1 [(sebuf.http.query) = { name: "opt_count" }];
+  optional bool opt_flag = 2 [(sebuf.http.query) = { name: "opt_flag" }];
+  optional string opt_text = 3 [(sebuf.http.query) = { name: "opt_text" }];
+  optional double opt_ratio = 4 [(sebuf.http.query) = { name: "opt_ratio" }];
+  int32 count = 5 [(sebuf.http.query) = { name: "count" }];
+  bool flag = 6 [(sebuf.http.query) = { name: "flag" }];
+  string text = 7 [(sebuf.http.query) = { name: "text" }];
+  double ratio = 8 [(sebuf.http.query) = { name: "ratio" }];
+}
+
 // RuntimeService exists only for generated-client execution tests. It exposes
 // representative request shapes without adding test-only methods to the golden
 // contract fixture.
@@ -44,6 +57,13 @@ service RuntimeService {
     option (sebuf.http.config) = {
       method: HTTP_METHOD_GET
       path: "/widgets"
+    };
+  }
+
+  rpc SearchPresence(RuntimePresenceRequest) returns (Widget) {
+    option (sebuf.http.config) = {
+      method: HTTP_METHOD_GET
+      path: "/presence"
     };
   }
 

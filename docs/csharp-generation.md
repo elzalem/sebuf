@@ -107,6 +107,10 @@ be set at client or call scope and is combined with the supplied
 For every unary annotated RPC, the generated method uses the configured HTTP
 verb and path. Path parameters are URI-escaped. Annotated query fields on GET
 and DELETE requests are encoded as query values (including repeated values).
+A proto3 `optional` query field (explicit presence, a nullable property) is sent
+whenever it is not `null`, so `0`, `false` and `""` are sent; a field without
+`optional` (implicit presence) is omitted at its zero value, because proto3
+cannot tell that value from unset.
 Methods with a request body serialize the request as JSON; bodyless methods do
 not send a JSON body.
 
