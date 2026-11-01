@@ -177,6 +177,13 @@ func writeQueryBuilding(p printer, cfg *methodConfig) {
 	p(`            path = path + "?" + urllib.parse.urlencode(query_pairs, doseq=True)`)
 }
 
+// writeQueryParamAppend emits the code that adds one query parameter.
+//
+// Presence rule: a proto3 `optional` field (typed Optional[...] and None when
+// unset) is sent whenever it is not None, including 0, 0.0, False and "". Any
+// other scalar has implicit presence and is omitted at its zero value (0, "",
+// False): proto3 cannot tell "unset" from "zero" there. Repeated fields send
+// one parameter per element and nothing when empty.
 func writeQueryParamAppend(p printer, qp annotations.QueryParam) {
 	pyField := escapePyKeyword(string(qp.Field.Desc.Name()))
 	src := "req." + pyField
@@ -184,6 +191,15 @@ func writeQueryParamAppend(p printer, qp annotations.QueryParam) {
 		p("        if %s:", src)
 		p(`            for _v in %s:`, src)
 		p(`                query_pairs.append(("%s", str(_v)))`, qp.ParamName)
+		return
+	}
+	if hasExplicitPresence(qp.Field) {
+		p("        if %s is not None:", src)
+		if qp.Field.Desc.Kind() == protoreflect.BoolKind {
+			p(`            query_pairs.append(("%s", "true" if %s else "false"))`, qp.ParamName, src)
+		} else {
+			p(`            query_pairs.append(("%s", str(%s)))`, qp.ParamName, src)
+		}
 		return
 	}
 	//nolint:exhaustive // default covers all numeric/message kinds with a single expression

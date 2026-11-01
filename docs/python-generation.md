@@ -256,8 +256,22 @@ message ListNotesRequest {
 
 ```python
 client.list_notes(ListNotesRequest(status="pending", limit=10, offset=0))
-# GET /notes?status=pending&limit=10&offset=0
+# GET /notes?status=pending&limit=10
 ```
+
+Whether a field is sent follows its proto3 presence:
+
+| Field | Sent when | Example |
+|-------|-----------|---------|
+| `optional` (explicit presence; typed `Optional[...]`, `None` when unset) | it is not `None`; the zero value is sent | `optional int32 offset` with `offset=0` sends `offset=0`; `False` and `""` are sent too |
+| without `optional` (implicit presence) | it differs from the type's zero value | `int32 offset` with `offset=0` sends nothing, as for `False` and `""` |
+| `repeated` | one parameter per element; nothing when empty | `repeated string tags` |
+
+Proto3 cannot tell a zero value from an unset one on a field without
+`optional`, so omitting it is correct; mark the field `optional` when a zero
+value must reach the server. In the example above `offset` is not `optional`,
+so `offset=0` is not sent; declared `optional int32 offset = 3`, the same call
+sends `offset=0`.
 
 ## Header Management
 

@@ -58,6 +58,16 @@ func pythonFieldType(field *protogen.Field) string {
 	return wrapModifiers(field, base)
 }
 
+// hasExplicitPresence reports whether a singular field is typed Optional[...]
+// with a None default, so that None means "unset" and every other value,
+// including a zero value, means "set". It is the same condition wrapModifiers
+// uses for the Optional wrapper (proto3 `optional` or sebuf nullable) and
+// pythonFieldDefault uses for the None default; message fields are not
+// included, because they are not valid query parameters.
+func hasExplicitPresence(field *protogen.Field) bool {
+	return field.Desc.HasOptionalKeyword() || annotations.IsNullableField(field)
+}
+
 // wrapModifiers adds list/dict/Optional wrappers to a base type expression.
 func wrapModifiers(field *protogen.Field, base string) string {
 	if field.Desc.IsMap() {
@@ -72,7 +82,7 @@ func wrapModifiers(field *protogen.Field, base string) string {
 	if field.Desc.IsList() {
 		return fmt.Sprintf("list[%s]", base)
 	}
-	if field.Desc.HasOptionalKeyword() || annotations.IsNullableField(field) {
+	if hasExplicitPresence(field) {
 		return fmt.Sprintf("Optional[%s]", base)
 	}
 	// Message fields are inherently nullable in proto3 (unset == None).
@@ -99,7 +109,7 @@ func pythonFieldDefault(field *protogen.Field) string {
 	if field.Desc.IsList() {
 		return "field(default_factory=list)"
 	}
-	if field.Desc.HasOptionalKeyword() || annotations.IsNullableField(field) {
+	if hasExplicitPresence(field) {
 		return pyNone
 	}
 	switch field.Desc.Kind() {

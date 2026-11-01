@@ -40,6 +40,13 @@ func TestPyClientGenGoldenFiles(t *testing.T) {
 			},
 		},
 		{
+			name:      "query parameter presence",
+			protoFile: "query_presence.proto",
+			expectedFiles: []string{
+				"query_presence_client.py",
+			},
+		},
+		{
 			name:      "backward compatibility",
 			protoFile: "backward_compat.proto",
 			expectedFiles: []string{
