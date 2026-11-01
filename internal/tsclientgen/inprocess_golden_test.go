@@ -190,6 +190,7 @@ func inProcessFixtures() []inProcessFixture {
 	return []inProcessFixture{
 		{name: "comprehensive HTTP verbs", protoFiles: []string{"http_verbs_comprehensive.proto"}},
 		{name: "query parameters", protoFiles: []string{"query_params.proto"}},
+		{name: "query parameter presence", protoFiles: []string{"query_presence.proto"}},
 		{name: "backward compatibility", protoFiles: []string{"backward_compat.proto"}},
 		{name: "complex features", protoFiles: []string{"complex_features.proto"}},
 		{name: "unwrap variants", protoFiles: []string{"unwrap.proto"}},

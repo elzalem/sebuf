@@ -53,6 +53,22 @@ func Dir(t *testing.T, dir string) {
 // typechecked by its own test instead.
 func DirExcluding(t *testing.T, dir string, excludeDirs ...string) {
 	t.Helper()
+	compile(t, dir, true, excludeDirs)
+}
+
+// Emit compiles every .ts file under dir to a .js file next to it, with the
+// same compiler settings Dir checks them under, so a test can run generated
+// code. Put a package.json with "type": "module" in dir first: the generated
+// modules import each other with .js specifiers and node loads the output as
+// ES modules only under that setting. The test is skipped when no TypeScript
+// toolchain is available; any compile error fails the test.
+func Emit(t *testing.T, dir string) {
+	t.Helper()
+	compile(t, dir, false, nil)
+}
+
+func compile(t *testing.T, dir string, noEmit bool, excludeDirs []string) {
+	t.Helper()
 
 	tsc := tscCommand(t)
 
@@ -81,14 +97,14 @@ func DirExcluding(t *testing.T, dir string, excludeDirs ...string) {
     "target": "es2020",
     "lib": ["es2020", "dom", "dom.iterable", "dom.asynciterable"],
     "strict": true,
-    "noEmit": true,
+    "noEmit": %t,
     "skipLibCheck": true,
     "noUnusedLocals": true
   },
   "include": [%q],
   "exclude": %s
 }
-`, filepath.ToSlash(absDir)+"/**/*.ts", excludeJSON)
+`, noEmit, filepath.ToSlash(absDir)+"/**/*.ts", excludeJSON)
 
 	tsconfigPath := filepath.Join(t.TempDir(), "tsconfig.json")
 	if writeErr := os.WriteFile(tsconfigPath, []byte(config), 0o600); writeErr != nil {
@@ -102,7 +118,7 @@ func DirExcluding(t *testing.T, dir string, excludeDirs ...string) {
 	cmd := exec.CommandContext(context.Background(), tsc[0], args...)
 	out, runErr := cmd.CombinedOutput()
 	if runErr != nil {
-		t.Errorf("tsc --noEmit failed for %s: %v\n%s", dir, runErr, out)
+		t.Errorf("tsc failed for %s: %v\n%s", dir, runErr, out)
 	}
 }
 

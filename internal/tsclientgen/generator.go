@@ -658,6 +658,12 @@ func (g *Generator) resolveOutputType(method *protogen.Method) string {
 }
 
 // generateURLBuilding generates URL construction with path and query params.
+//
+// Query presence rule: a proto3 `optional` field is sent whenever it is set
+// (not undefined or null), including 0, false and "". Any other scalar has
+// implicit presence and is omitted at its zero value (0, false, "", the
+// UNSPECIFIED enum value, "0" for 64-bit string-encoded integers). Repeated
+// fields are sent as one parameter per element and omitted when empty.
 func (g *Generator) generateURLBuilding(p printer, cfg *rpcMethodConfig) {
 	// `path` is only reassigned when there are path params to substitute; declare
 	// it const otherwise so the generated code reflects that it never changes.
@@ -690,6 +696,17 @@ func (g *Generator) generateURLBuilding(p printer, cfg *rpcMethodConfig) {
 				// URLSearchParams.append call typechecks; it is a no-op for strings.
 				p("    if (req.%s && req.%s.length > 0) req.%s.forEach(v => params.append(\"%s\", String(v)));",
 					requestFieldName, requestFieldName, requestFieldName, qp.ParamName)
+				continue
+			}
+
+			// A proto3 `optional` scalar has explicit presence, so a set value is a
+			// real value even when it equals the type's zero (0, false, ""): only
+			// an unset (undefined) or null field is left out. The zero-value
+			// checks below are for implicit-presence fields, where proto3 itself
+			// cannot tell "unset" from "zero".
+			if qp.Field != nil && qp.Field.Desc.HasOptionalKeyword() {
+				p("    if (req.%s != null) params.set(\"%s\", String(req.%s));",
+					requestFieldName, qp.ParamName, requestFieldName)
 				continue
 			}
 

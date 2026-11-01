@@ -1,0 +1,58 @@
+// Test proto file for query-parameter presence: a proto3 optional field has
+// explicit presence, so a set value is sent even when it is the type's zero
+// value (0, false, ""); the same field without optional has implicit presence,
+// so its zero value is not sent.
+syntax = "proto3";
+
+package test.httpgen.querypresence;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/generated;generated";
+
+import "sebuf/http/annotations.proto";
+
+enum Kind {
+  KIND_UNSPECIFIED = 0;
+  KIND_PHOTO = 1;
+}
+
+message QueryPresenceRequest {
+  // Explicit presence: sent whenever set, including 0, false and "".
+  optional int32 opt_count = 1 [(sebuf.http.query) = { name: "opt_count" }];
+  optional bool opt_flag = 2 [(sebuf.http.query) = { name: "opt_flag" }];
+  optional string opt_text = 3 [(sebuf.http.query) = { name: "opt_text" }];
+  optional double opt_ratio = 4 [(sebuf.http.query) = { name: "opt_ratio" }];
+  optional int64 opt_big = 5 [(sebuf.http.query) = { name: "opt_big" }];
+  optional Kind opt_kind = 6 [(sebuf.http.query) = { name: "opt_kind" }];
+
+  // Implicit presence: the zero value is the same as unset and is not sent.
+  int32 count = 7 [(sebuf.http.query) = { name: "count" }];
+  bool flag = 8 [(sebuf.http.query) = { name: "flag" }];
+  string text = 9 [(sebuf.http.query) = { name: "text" }];
+  double ratio = 10 [(sebuf.http.query) = { name: "ratio" }];
+  int64 big = 11 [(sebuf.http.query) = { name: "big" }];
+  Kind kind = 12 [(sebuf.http.query) = { name: "kind" }];
+}
+
+message QueryPresenceResponse {
+  string id = 1;
+}
+
+service QueryPresenceService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc Search(QueryPresenceRequest) returns (QueryPresenceResponse) {
+    option (sebuf.http.config) = {
+      path: "/search"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  rpc Remove(QueryPresenceRequest) returns (QueryPresenceResponse) {
+    option (sebuf.http.config) = {
+      path: "/items"
+      method: HTTP_METHOD_DELETE
+    };
+  }
+}

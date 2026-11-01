@@ -542,6 +542,21 @@ The TypeScript client generates, using a per-proto **modules layout**:
 - Method-level headers as call options (e.g., `requestId` from `X-Request-ID`)
 - Automatic query parameter encoding and path parameter substitution
 
+### Query parameter presence
+
+For `GET` and `DELETE`, the TypeScript client decides whether to send a
+`(sebuf.http.query)` scalar field by the field's proto3 presence:
+
+| Field | Sent when | Example |
+|-------|-----------|---------|
+| `optional` (explicit presence) | set, i.e. not `undefined` or `null`; the zero value is sent | `optional int32 limit` with `limit: 0` sends `limit=0`; `false` and `""` are sent too |
+| without `optional` (implicit presence) | it differs from the type's zero value | `int32 limit` with `limit: 0` sends nothing, as for `false`, `""`, the first (UNSPECIFIED) enum value and `"0"` for a string-encoded 64-bit integer |
+| `repeated` | one parameter per element; nothing when empty | `repeated string tags` |
+
+Proto3 cannot tell a zero value from an unset one on a field without
+`optional`, so omitting it is correct; mark the field `optional` when a zero
+value must reach the server.
+
 ## TypeScript Server Generation
 
 For TypeScript server-side code generation, sebuf provides `protoc-gen-ts-server` which generates framework-agnostic HTTP server handlers using the Web Fetch API. See the [ts-fullstack-demo example](../examples/ts-fullstack-demo/) for a complete TS client + TS server working together from the same proto.
