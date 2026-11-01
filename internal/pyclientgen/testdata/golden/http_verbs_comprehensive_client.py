@@ -638,9 +638,9 @@ class RESTfulAPIServiceClient:
             query_pairs.append(("filter", str(req.filter)))
         if req.include_deleted:
             query_pairs.append(("include_deleted", "true" if req.include_deleted else "false"))
-        if req.since_timestamp is not None and req.since_timestamp != 0:
+        if req.since_timestamp is not None and req.since_timestamp != "0":
             query_pairs.append(("since_timestamp", str(req.since_timestamp)))
-        if req.max_id is not None and req.max_id != 0:
+        if req.max_id is not None and req.max_id != "0":
             query_pairs.append(("max_id", str(req.max_id)))
         if req.min_score is not None and req.min_score != 0:
             query_pairs.append(("min_score", str(req.min_score)))

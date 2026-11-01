@@ -264,7 +264,7 @@ Whether a field is sent follows its proto3 presence:
 | Field | Sent when | Example |
 |-------|-----------|---------|
 | `optional` (explicit presence; typed `Optional[...]`, `None` when unset) | it is not `None`; the zero value is sent | `optional int32 offset` with `offset=0` sends `offset=0`; `False` and `""` are sent too |
-| without `optional` (implicit presence) | it differs from the type's zero value | `int32 offset` with `offset=0` sends nothing, as for `False` and `""` |
+| without `optional` (implicit presence) | it differs from the type's zero value | `int32 offset` with `offset=0` sends nothing, as for `False`, `""` and `"0"` on a 64-bit integer carried as a string |
 | `repeated` | one parameter per element; nothing when empty | `repeated string tags` |
 
 Proto3 cannot tell a zero value from an unset one on a field without

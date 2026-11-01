@@ -403,7 +403,7 @@ class QueryParamServiceClient:
             query_pairs.append(("q", str(req.query)))
         if req.limit is not None and req.limit != 0:
             query_pairs.append(("limit", str(req.limit)))
-        if req.offset is not None and req.offset != 0:
+        if req.offset is not None and req.offset != "0":
             query_pairs.append(("offset", str(req.offset)))
         if req.active:
             query_pairs.append(("active", "true" if req.active else "false"))
@@ -413,7 +413,7 @@ class QueryParamServiceClient:
             query_pairs.append(("max_score", str(req.max_score)))
         if req.page is not None and req.page != 0:
             query_pairs.append(("page", str(req.page)))
-        if req.timestamp is not None and req.timestamp != 0:
+        if req.timestamp is not None and req.timestamp != "0":
             query_pairs.append(("ts", str(req.timestamp)))
         if query_pairs:
             path = path + "?" + urllib.parse.urlencode(query_pairs, doseq=True)

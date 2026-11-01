@@ -211,7 +211,12 @@ func writeQueryParamAppend(p printer, qp annotations.QueryParam) {
 		p("        if %s:", src)
 		p(`            query_pairs.append(("%s", "true" if %s else "false"))`, qp.ParamName, src)
 	default:
-		p("        if %s is not None and %s != 0:", src, src)
+		// A 64-bit integer without the NUMBER encoding is a str whose zero is "0".
+		zero := "0"
+		if pythonScalarType(qp.Field) == pyStr {
+			zero = `"0"`
+		}
+		p("        if %s is not None and %s != %s:", src, src, zero)
 		p(`            query_pairs.append(("%s", str(%s)))`, qp.ParamName, src)
 	}
 }

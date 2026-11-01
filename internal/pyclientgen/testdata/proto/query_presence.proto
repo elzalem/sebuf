@@ -23,6 +23,8 @@ message QueryPresenceRequest {
   bool flag = 7 [(sebuf.http.query) = { name: "flag" }];
   string text = 8 [(sebuf.http.query) = { name: "text" }];
   double ratio = 9 [(sebuf.http.query) = { name: "ratio" }];
+  // A 64-bit integer is a string on the wire by default, so its zero is "0".
+  int64 big = 10 [(sebuf.http.query) = { name: "big" }];
 }
 
 message QueryPresenceResponse {

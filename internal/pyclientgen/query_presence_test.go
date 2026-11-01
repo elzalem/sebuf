@@ -80,17 +80,21 @@ def query(method, req):
 # Every optional field set to its zero value is sent; the implicit-presence
 # fields at their zero value are not.
 zeroes = m.QueryPresenceRequest(opt_count=0, opt_flag=False, opt_text='', opt_ratio=0.0, opt_big='0',
-                                count=0, flag=False, text='', ratio=0.0)
+                                count=0, flag=False, text='', ratio=0.0, big='0')
 sent = 'opt_count=0&opt_flag=false&opt_text=&opt_ratio=0.0&opt_big=0'
 assert query('search', zeroes) == '/search?' + sent, query('search', zeroes)
 assert query('remove', zeroes) == '/items?' + sent, query('remove', zeroes)
 
-# An unset optional field (None) is not sent.
+# An unset optional field (None) is not sent, and neither is a plain 64-bit integer at "0" (it is a
+# str on the wire, so its zero is "0").
 assert query('search', m.QueryPresenceRequest()) == '/search', query('search', m.QueryPresenceRequest())
 assert query('search', m.QueryPresenceRequest(opt_count=None, opt_text=None)) == '/search'
 
 # Non-zero values are sent for both kinds of field.
-full = m.QueryPresenceRequest(opt_count=7, opt_flag=True, opt_text='a b', count=3, flag=True, text='x', ratio=1.5)
-assert query('search', full) == '/search?opt_count=7&opt_flag=true&opt_text=a+b&count=3&flag=true&text=x&ratio=1.5', query('search', full)
+full = m.QueryPresenceRequest(opt_count=7, opt_flag=True, opt_text='a b', count=3, flag=True, text='x', ratio=1.5,
+                              big='9')
+assert query('search', full) == (
+    '/search?opt_count=7&opt_flag=true&opt_text=a+b&count=3&flag=true&text=x&ratio=1.5&big=9'
+), query('search', full)
 print('ok')
 `

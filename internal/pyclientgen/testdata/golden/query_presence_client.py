@@ -112,6 +112,7 @@ class QueryPresenceRequest:
     flag: bool = False
     text: str = ""
     ratio: float = 0.0
+    big: str = "0"
 
     def to_dict(self) -> Any:
         """Serialize to a JSON-ready dict respecting sebuf JSON mapping annotations."""
@@ -130,6 +131,7 @@ class QueryPresenceRequest:
         d["flag"] = self.flag
         d["text"] = self.text
         d["ratio"] = self.ratio
+        d["big"] = str(self.big)
         return d
 
     @classmethod
@@ -156,6 +158,8 @@ class QueryPresenceRequest:
             kwargs["text"] = str(data["text"])
         if "ratio" in data and data["ratio"] is not None:
             kwargs["ratio"] = float(data["ratio"])
+        if "big" in data and data["big"] is not None:
+            kwargs["big"] = str(data["big"])
         return cls(**kwargs)
 
 @dataclass
@@ -240,6 +244,8 @@ class QueryPresenceServiceClient:
             query_pairs.append(("text", str(req.text)))
         if req.ratio is not None and req.ratio != 0:
             query_pairs.append(("ratio", str(req.ratio)))
+        if req.big is not None and req.big != "0":
+            query_pairs.append(("big", str(req.big)))
         if query_pairs:
             path = path + "?" + urllib.parse.urlencode(query_pairs, doseq=True)
         headers: dict[str, str] = dict(self._default_headers)
@@ -291,6 +297,8 @@ class QueryPresenceServiceClient:
             query_pairs.append(("text", str(req.text)))
         if req.ratio is not None and req.ratio != 0:
             query_pairs.append(("ratio", str(req.ratio)))
+        if req.big is not None and req.big != "0":
+            query_pairs.append(("big", str(req.big)))
         if query_pairs:
             path = path + "?" + urllib.parse.urlencode(query_pairs, doseq=True)
         headers: dict[str, str] = dict(self._default_headers)
