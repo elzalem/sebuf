@@ -50,8 +50,9 @@ func TestParseFieldNames(t *testing.T) {
 	}
 }
 
-// buildFieldNamesPlugin builds the plugin into a temporary directory and returns its path.
-func buildFieldNamesPlugin(t *testing.T) string {
+// buildOpenAPIPlugin builds the plugin into a temporary directory and returns its path. The
+// other option tests in this package use it too.
+func buildOpenAPIPlugin(t *testing.T) string {
 	t.Helper()
 
 	pluginPath := filepath.Join(t.TempDir(), "protoc-gen-openapiv3")
@@ -121,7 +122,7 @@ func runFieldNamesProtoc(t *testing.T, pluginPath, options string) (string, stri
 // mode, with the option absent and with field_names=json, must produce one and the same
 // document.
 func TestFieldNamesGoldenFiles(t *testing.T) {
-	pluginPath := buildFieldNamesPlugin(t)
+	pluginPath := buildOpenAPIPlugin(t)
 
 	testCases := []struct {
 		name       string
@@ -235,7 +236,7 @@ func collectPropertyNames(node any, into map[string]bool) {
 // discriminator may carry a json_name (camelCase or an override), and every proto field
 // name of the test messages must appear.
 func TestFieldNamesProtoUsesNoJSONNames(t *testing.T) {
-	pluginPath := buildFieldNamesPlugin(t)
+	pluginPath := buildOpenAPIPlugin(t)
 
 	outDir, stderr, err := runFieldNamesProtoc(t, pluginPath, "format=json,field_names=proto")
 	if err != nil {
@@ -277,7 +278,7 @@ func TestFieldNamesProtoUsesNoJSONNames(t *testing.T) {
 
 // TestFieldNamesDefaultKeepsJSONNames pins the default: json_name, including an override.
 func TestFieldNamesDefaultKeepsJSONNames(t *testing.T) {
-	pluginPath := buildFieldNamesPlugin(t)
+	pluginPath := buildOpenAPIPlugin(t)
 
 	outDir, stderr, err := runFieldNamesProtoc(t, pluginPath, "format=json")
 	if err != nil {
@@ -312,7 +313,7 @@ func TestFieldNamesDefaultKeepsJSONNames(t *testing.T) {
 
 // TestFieldNamesBundleHonorsOption checks that the bundled document follows the option too.
 func TestFieldNamesBundleHonorsOption(t *testing.T) {
-	pluginPath := buildFieldNamesPlugin(t)
+	pluginPath := buildOpenAPIPlugin(t)
 
 	outDir, stderr, err := runFieldNamesProtoc(t, pluginPath,
 		"format=yaml,field_names=proto,bundle=true,bundle_only=true,bundle_output=bundle.openapi.yaml")
@@ -334,7 +335,7 @@ func TestFieldNamesBundleHonorsOption(t *testing.T) {
 // TestFieldNamesRejectsUnknownValue checks that a misspelt value fails the run instead of
 // silently producing the wrong names.
 func TestFieldNamesRejectsUnknownValue(t *testing.T) {
-	pluginPath := buildFieldNamesPlugin(t)
+	pluginPath := buildOpenAPIPlugin(t)
 
 	outDir, stderr, err := runFieldNamesProtoc(t, pluginPath, "field_names=snake")
 	if err == nil {

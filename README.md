@@ -43,6 +43,8 @@ This starts a working HTTP API with JSON endpoints and OpenAPI docs - all genera
 
 **Wire field names.** `protoc-gen-openapiv3`, `protoc-gen-py-client` and `protoc-gen-ts-client` take the plugin option `field_names=json|proto`. `json` (the default) names fields by their `json_name`, lowerCamelCase as `protojson` writes them; `proto` keeps the proto field names (`worker_name`) for services whose JSON is snake_case. See [OpenAPI generation](docs/openapi-generation.md#field-names) and [Python generation](docs/python-generation.md).
 
+**Nullable message references.** `protoc-gen-openapiv3` takes the plugin option `nullable_refs=oneof|plain`. `oneof` (the default) writes a nullable message reference as `oneOf: [{$ref: ...}, {type: "null"}]`; `plain` writes the bare `$ref`, for consumers such as Apple's `swift-openapi-generator` that drop a property whose `oneOf` holds a null schema. `plain` leaves the property optional but no longer describes an explicit `null`. See [OpenAPI generation](docs/openapi-generation.md#nullable-references).
+
 **Validation and error handling — built in, not bolted on:**
 
 - Automatic request body validation via [buf.validate](https://github.com/bufbuild/protovalidate) annotations

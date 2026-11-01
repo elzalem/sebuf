@@ -68,11 +68,26 @@ func (g *Generator) convertField(field *protogen.Field) *base.SchemaProxy {
 	if field.Desc.Kind() == protoreflect.MessageKind && annotations.HasEmptyBehaviorAnnotation(field) {
 		behavior := annotations.GetEmptyBehavior(field)
 		if behavior == http.EmptyBehavior_EMPTY_BEHAVIOR_NULL {
-			return g.makeNullableOneOfSchema(schema)
+			return g.makeNullableMessageSchema(schema)
 		}
 	}
 
 	return schema
+}
+
+// makeNullableMessageSchema writes a message field that may be null. A reference becomes
+// a oneOf of the reference and a null schema, or, with nullable_refs=plain, stays the
+// bare reference: the field is not required, so absence remains valid, but an explicit
+// null is no longer described. A message that serializes as an inline scalar (such as a
+// timestamp) takes the type-array form in plain mode, like every other nullable scalar.
+func (g *Generator) makeNullableMessageSchema(schemaProxy *base.SchemaProxy) *base.SchemaProxy {
+	if g.nullableRefs != NullableRefsPlain {
+		return g.makeNullableOneOfSchema(schemaProxy)
+	}
+	if schemaProxy.IsReference() {
+		return schemaProxy
+	}
+	return g.makeNullableSchema(schemaProxy)
 }
 
 // makeNullableOneOfSchema creates a oneOf schema with the original schema and a null type.

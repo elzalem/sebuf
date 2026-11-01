@@ -225,6 +225,8 @@ plugins:
     # opt: filename=my_api.yaml
     # For snake_case property names (the proto field names) instead of lowerCamelCase:
     # opt: field_names=proto
+    # For clients that cannot read a null schema inside a oneOf:
+    # opt: nullable_refs=plain
 ```
 
 Generate:
@@ -1030,6 +1032,45 @@ required:
 Names that the proto already spells out do not change with the option: path and query parameter names, header names, the discriminator property of a `oneof_config` (`discriminator: "event_type"`) and the discriminator values, enum values, and the built-in `Error`, `ValidationError` and `FieldViolation` schemas, whose fields are single words.
 
 The option describes the wire format; it does not make a server write it. Pair it with the server-side setting that keeps the proto field names in the JSON (for Go's `protojson`, `UseProtoNames`), or the specification will describe keys the server does not send.
+
+### Nullable References
+
+A message field marked `empty_behavior = EMPTY_BEHAVIOR_NULL` serializes as `null` when the message is empty. By default the schema says so with a `oneOf` of the reference and a null schema, the explicit OpenAPI 3.1 form. Some consumers cannot read that form: Apple's `swift-openapi-generator`, for one, does not support a `{type: "null"}` schema inside `oneOf` and silently drops the whole property from the generated client. The `nullable_refs` option selects the form:
+
+| Option | Values | Default | Effect |
+|---|---|---|---|
+| `nullable_refs` | `oneof`, `plain` | `oneof` | `oneof` writes `oneOf: [{$ref: ...}, {type: "null"}]`. `plain` writes the bare `$ref`. Any other value fails the run. |
+
+```bash
+protoc --openapiv3_out=./docs --openapiv3_opt=nullable_refs=plain api.proto
+```
+
+```yaml
+  - local: protoc-gen-openapiv3
+    out: ./docs
+    opt:
+      - nullable_refs=plain
+```
+
+For a field `Address billing_address = 2 [(sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_NULL]` the default writes
+
+```yaml
+billingAddress:
+  oneOf:
+    - $ref: '#/components/schemas/Address'
+    - type: "null"
+```
+
+and `nullable_refs=plain` writes
+
+```yaml
+billingAddress:
+  $ref: '#/components/schemas/Address'
+```
+
+The property is not in the `required` list in either mode, so absence is still described. What `plain` gives up is the explicit null: a client that tells a `null` value from a missing key no longer learns from the specification that `null` can occur.
+
+Scalars keep the form `type: [T, "null"]` in both modes: a `nullable` scalar and a wrapper type are written that way already. A `google.protobuf.Timestamp` marked `EMPTY_BEHAVIOR_NULL` is not a reference but an inline string schema; the default writes it as a `oneOf` of that schema and a null schema, and `plain` as `type: [string, "null"]`, which consumers read without trouble. Fields with any other `empty_behavior` are a bare `$ref` in both modes. The bundled document made with `bundle=true` follows the option too.
 
 ### Output Directory Structure
 

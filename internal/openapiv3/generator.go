@@ -50,6 +50,33 @@ func ParseFieldNames(value string) (FieldNames, error) {
 	}
 }
 
+// NullableRefs selects how a message-typed field that may be null is written when the
+// field's schema is a reference to a component schema (empty_behavior = NULL).
+type NullableRefs string
+
+const (
+	// NullableRefsOneOf writes the reference and a null schema as the two branches of a
+	// oneOf: the explicit OpenAPI 3.1 form. This is the default.
+	NullableRefsOneOf NullableRefs = "oneof"
+	// NullableRefsPlain writes the bare reference. The property is not in the required
+	// list, so absence is still allowed, but an explicit null is no longer described.
+	// Some consumers cannot handle a null schema inside a oneOf and drop the property.
+	NullableRefsPlain NullableRefs = "plain"
+)
+
+// ParseNullableRefs converts the value of the nullable_refs plugin option. An empty
+// value selects the default, NullableRefsOneOf.
+func ParseNullableRefs(value string) (NullableRefs, error) {
+	switch NullableRefs(value) {
+	case "", NullableRefsOneOf:
+		return NullableRefsOneOf, nil
+	case NullableRefsPlain:
+		return NullableRefsPlain, nil
+	default:
+		return "", fmt.Errorf("nullable_refs must be oneof or plain, got %q", value)
+	}
+}
+
 // HTTP method constants (lowercase for OpenAPI).
 const (
 	httpMethodGet    = "get"
@@ -61,11 +88,12 @@ const (
 
 // Generator generates OpenAPI v3.1 documents from Protocol Buffer definitions.
 type Generator struct {
-	doc        *v3.Document
-	schemas    *orderedmap.Map[string, *base.SchemaProxy]
-	format     OutputFormat
-	bundleMode bool
-	fieldNames FieldNames
+	doc          *v3.Document
+	schemas      *orderedmap.Map[string, *base.SchemaProxy]
+	format       OutputFormat
+	bundleMode   bool
+	fieldNames   FieldNames
+	nullableRefs NullableRefs
 }
 
 // NewGenerator creates a new OpenAPI generator with the specified output format.
@@ -76,9 +104,10 @@ func NewGenerator(format OutputFormat) *Generator {
 	addBuiltinErrorSchemas(schemas)
 
 	return &Generator{
-		format:     format,
-		fieldNames: FieldNamesJSON,
-		schemas:    schemas,
+		format:       format,
+		fieldNames:   FieldNamesJSON,
+		nullableRefs: NullableRefsOneOf,
+		schemas:      schemas,
 		doc: &v3.Document{
 			Version: "3.1.0",
 			Info: &base.Info{
@@ -130,6 +159,12 @@ func (g *Generator) SetInfo(title, version, description string, contact *base.Co
 // FieldNamesJSON. Call it before processing any service or message.
 func (g *Generator) SetFieldNames(fieldNames FieldNames) {
 	g.fieldNames = fieldNames
+}
+
+// SetNullableRefs selects how a nullable message reference is written. The default is
+// NullableRefsOneOf. Call it before processing any service or message.
+func (g *Generator) SetNullableRefs(nullableRefs NullableRefs) {
+	g.nullableRefs = nullableRefs
 }
 
 // propertyName returns the name under which a field appears in a schema.

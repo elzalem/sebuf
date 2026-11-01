@@ -1,0 +1,119 @@
+openapi: 3.1.0
+info:
+    title: NullableRefsService API
+    version: 1.0.0
+paths:
+    /api/v1/accounts/{id}:
+        get:
+            tags:
+                - NullableRefsService
+            summary: GetAccount
+            operationId: GetAccount
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Account'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+components:
+    schemas:
+        Error:
+            type: object
+            properties:
+                message:
+                    type: string
+                    description: Error message (e.g., 'user not found', 'database connection failed')
+            description: Error is returned when a handler encounters an error. It contains a simple error message that the developer can customize.
+        FieldViolation:
+            type: object
+            properties:
+                field:
+                    type: string
+                    description: The field path that failed validation (e.g., 'user.email' for nested fields). For header validation, this will be the header name (e.g., 'X-API-Key')
+                description:
+                    type: string
+                    description: Human-readable description of the validation violation (e.g., 'must be a valid email address', 'required field missing')
+            required:
+                - field
+                - description
+            description: FieldViolation describes a single validation error for a specific field.
+        ValidationError:
+            type: object
+            properties:
+                violations:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/FieldViolation'
+                    description: List of validation violations
+            required:
+                - violations
+            description: ValidationError is returned when request validation fails. It contains a list of field violations describing what went wrong.
+        GetAccountRequest:
+            type: object
+            properties:
+                id:
+                    type: string
+            description: GetAccountRequest is the request for GetAccount.
+        Account:
+            type: object
+            properties:
+                id:
+                    type: string
+                billingAddress:
+                    $ref: '#/components/schemas/Address'
+                shippingAddress:
+                    $ref: '#/components/schemas/Address'
+                mailingAddress:
+                    $ref: '#/components/schemas/Address'
+                defaultAddress:
+                    $ref: '#/components/schemas/Address'
+                closedAt:
+                    type:
+                        - string
+                        - "null"
+                    format: date-time
+                    description: NULL on a message that serializes as an inline scalar rather than a reference.
+                nickname:
+                    type:
+                        - string
+                        - "null"
+                    description: A nullable scalar keeps its type array in every mode.
+                note:
+                    type:
+                        - string
+                        - "null"
+                    description: A wrapper type is a nullable scalar in every mode.
+                previousAddresses:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Address'
+            description: |-
+                Account has message fields with every empty_behavior and nullable scalars, so the
+                 nullable_refs option can be checked against each of them.
+        Address:
+            type: object
+            properties:
+                street:
+                    type: string
+                city:
+                    type: string
+            description: Address is a message that other messages reference.

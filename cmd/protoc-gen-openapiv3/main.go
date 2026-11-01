@@ -36,14 +36,14 @@ func main() {
 	req := readRequest()
 	params := parseParameters(req.GetParameter())
 	format := parseFormat(params)
-	fieldNames, fieldNamesErr := parseFieldNames(params)
+	schema, schemaErr := parseSchemaOptions(params)
 	bundle := parseBundleConfig(params)
 	plugin := createPlugin(req)
-	if fieldNamesErr != nil {
-		// An unknown value fails the run instead of silently producing the wrong names.
-		plugin.Error(fieldNamesErr)
+	if schemaErr != nil {
+		// An unknown value fails the run instead of silently producing the wrong schemas.
+		plugin.Error(schemaErr)
 	} else {
-		generateOpenAPIFiles(plugin, format, fieldNames, bundle)
+		generateOpenAPIFiles(plugin, format, schema, bundle)
 	}
 	writeResponse(plugin)
 }
@@ -73,6 +73,33 @@ func parseFormat(params map[string][]string) openapiv3.OutputFormat {
 	return openapiv3.FormatYAML
 }
 
+// schemaOptions are the plugin options that change how message fields are written into
+// the schemas, shared by the per-service generators and the bundle generator.
+type schemaOptions struct {
+	fieldNames   openapiv3.FieldNames
+	nullableRefs openapiv3.NullableRefs
+}
+
+// apply configures a generator before it processes any service or message.
+func (o schemaOptions) apply(generator *openapiv3.Generator) {
+	generator.SetFieldNames(o.fieldNames)
+	generator.SetNullableRefs(o.nullableRefs)
+}
+
+// parseSchemaOptions reads the field_names and nullable_refs options and rejects an
+// unknown value of either.
+func parseSchemaOptions(params map[string][]string) (schemaOptions, error) {
+	fieldNames, err := parseFieldNames(params)
+	if err != nil {
+		return schemaOptions{}, err
+	}
+	nullableRefs, err := parseNullableRefs(params)
+	if err != nil {
+		return schemaOptions{}, err
+	}
+	return schemaOptions{fieldNames: fieldNames, nullableRefs: nullableRefs}, nil
+}
+
 // parseFieldNames reads the field_names option: "json" (the default) names schema
 // properties by the field's json_name, "proto" by the proto field name.
 func parseFieldNames(params map[string][]string) (openapiv3.FieldNames, error) {
@@ -80,6 +107,15 @@ func parseFieldNames(params map[string][]string) (openapiv3.FieldNames, error) {
 		return openapiv3.ParseFieldNames(vs[0])
 	}
 	return openapiv3.FieldNamesJSON, nil
+}
+
+// parseNullableRefs reads the nullable_refs option: "oneof" (the default) writes a
+// nullable message reference as a oneOf with a null schema, "plain" as the bare $ref.
+func parseNullableRefs(params map[string][]string) (openapiv3.NullableRefs, error) {
+	if vs, ok := params["nullable_refs"]; ok && len(vs) > 0 {
+		return openapiv3.ParseNullableRefs(vs[0])
+	}
+	return openapiv3.NullableRefsOneOf, nil
 }
 
 // parseBundleConfig extracts bundle_* plugin params. Repeated keys (notably
@@ -126,7 +162,7 @@ func createPlugin(req *pluginpb.CodeGeneratorRequest) *protogen.Plugin {
 func generateOpenAPIFiles(
 	plugin *protogen.Plugin,
 	format openapiv3.OutputFormat,
-	fieldNames openapiv3.FieldNames,
+	schema schemaOptions,
 	bundle bundleConfig,
 ) {
 	// Reject path/query params whose types cannot be represented in a URL before
@@ -143,12 +179,12 @@ func generateOpenAPIFiles(
 			if !file.Generate {
 				continue
 			}
-			processFileServices(plugin, file, format, fieldNames)
+			processFileServices(plugin, file, format, schema)
 		}
 	}
 
 	if bundle.enabled {
-		generateBundleFile(plugin, format, fieldNames, bundle)
+		generateBundleFile(plugin, format, schema, bundle)
 	}
 }
 
@@ -156,10 +192,10 @@ func processFileServices(
 	plugin *protogen.Plugin,
 	file *protogen.File,
 	format openapiv3.OutputFormat,
-	fieldNames openapiv3.FieldNames,
+	schema schemaOptions,
 ) {
 	for _, service := range file.Services {
-		generator := createServiceGenerator(file, service, format, fieldNames)
+		generator := createServiceGenerator(file, service, format, schema)
 		output := renderService(generator)
 		writeServiceFile(plugin, service, output, format)
 	}
@@ -169,10 +205,10 @@ func createServiceGenerator(
 	_ *protogen.File,
 	service *protogen.Service,
 	format openapiv3.OutputFormat,
-	fieldNames openapiv3.FieldNames,
+	schema schemaOptions,
 ) *openapiv3.Generator {
 	generator := openapiv3.NewGenerator(format)
-	generator.SetFieldNames(fieldNames)
+	schema.apply(generator)
 
 	// Collect all messages referenced by this service, including those from other files
 	generator.CollectReferencedMessages(service)
@@ -212,11 +248,11 @@ func writeServiceFile(
 func generateBundleFile(
 	plugin *protogen.Plugin,
 	format openapiv3.OutputFormat,
-	fieldNames openapiv3.FieldNames,
+	schema schemaOptions,
 	cfg bundleConfig,
 ) {
 	generator := openapiv3.NewBundleGenerator(format)
-	generator.SetFieldNames(fieldNames)
+	schema.apply(generator)
 	applyBundleMetadata(generator, cfg)
 
 	serviceCount := 0

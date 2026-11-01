@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package testdata.nullable_refs;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/nullablerefs;nullablerefs";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+import "sebuf/http/annotations.proto";
+
+// Address is a message that other messages reference.
+message Address {
+  string street = 1;
+  string city = 2;
+}
+
+// Account has message fields with every empty_behavior and nullable scalars, so the
+// nullable_refs option can be checked against each of them.
+message Account {
+  string id = 1;
+
+  // NULL: the reference may be null when the message is empty.
+  Address billing_address = 2 [(sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_NULL];
+
+  // PRESERVE: a plain reference in every mode.
+  Address shipping_address = 3 [(sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_PRESERVE];
+
+  // OMIT: a plain reference in every mode.
+  Address mailing_address = 4 [(sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_OMIT];
+
+  // No annotation: a plain reference in every mode.
+  Address default_address = 5;
+
+  // NULL on a message that serializes as an inline scalar rather than a reference.
+  google.protobuf.Timestamp closed_at = 6 [(sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_NULL];
+
+  // A nullable scalar keeps its type array in every mode.
+  optional string nickname = 7 [(sebuf.http.nullable) = true];
+
+  // A wrapper type is a nullable scalar in every mode.
+  google.protobuf.StringValue note = 8;
+
+  // Repeated references are never nullable.
+  repeated Address previous_addresses = 9;
+}
+
+// GetAccountRequest is the request for GetAccount.
+message GetAccountRequest {
+  string id = 1;
+}
+
+// NullableRefsService tests how nullable message references are written.
+service NullableRefsService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc GetAccount(GetAccountRequest) returns (Account) {
+    option (sebuf.http.config) = {
+      path: "/accounts/{id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+}
